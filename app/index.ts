@@ -7,58 +7,61 @@ import {
   ClickHouseEngines,
   MaterializedView,
   sql,
+  ClickHouseDecimal,
 } from "@514labs/moose-lib";
 import { faker } from "@faker-js/faker";
 
 // Define a data model for the table
-interface Original {
+interface Event {
   id: Key<string>;
-  a_number: number;
-  a_string: string;
-  a_date: Date;
+  price: string & ClickHouseDecimal<10, 2>;
+  color: string;
+  created_at: Date;
 }
 
-const table = new OlapTable<Original>("new_table");
+const sourceTable = new OlapTable<Event>("source_table");
 
-interface Target {
+interface DailyRollup {
   day: Date;
-  count: number;
-  sum: number;
-  avg: number;
+  color: string;
+  total_sales: number;
+  avg_price: number;
 }
 
-const targetTable = new OlapTable<Target>("renamed", {
-  engine: ClickHouseEngines.MergeTree,
-  orderByFields: ["day"],
-});
+// const targetTable = new OlapTable<DailyRollup>("rollup_table", {
+//   engine: ClickHouseEngines.MergeTree,
+//   orderByFields: ["day"],
+// });
 
 const select = sql`
   SELECT 
-    toStartOfDay(${table.columns.a_date}) as day, 
-    uniq(${table.columns.id}) as count, 
-    SUM(${table.columns.a_number}) as sum,
-    avg(${table.columns.a_number}) as avg
-  FROM ${table} 
-  GROUP BY day`;
+    toStartOfDay(${sourceTable.columns.created_at}) as day, 
+    ${sourceTable.columns.color}, 
+    sum(${sourceTable.columns.price}) as total_sales,
+    avg(${sourceTable.columns.price}) as avg_price
+  FROM ${sourceTable} 
+  GROUP BY day, color`;
 
-const mv = new MaterializedView<Target>({
+const mv = new MaterializedView<DailyRollup>({
   selectStatement: select,
-  selectTables: [table],
-  targetTable: targetTable,
-  orderByFields: ["day"],
-  materializedViewName: "mv_to_target",
+  selectTables: [sourceTable],
+  targetTable: {
+    name: "table",
+    engine: ClickHouseEngines.MergeTree,
+  },
+  materializedViewName: "table",
 });
 
 // Define a task to seed the table with random data
 const seed = new Task<null, void>("seed", {
   run: async () => {
     for (let i = 0; i < 1000; i++) {
-      table.insert([
+      sourceTable.insert([
         {
           id: faker.string.uuid(),
-          a_number: faker.number.int({ min: 18, max: 100 }),
-          a_string: faker.string.uuid(),
-          a_date: faker.date.recent(),
+          price: faker.commerce.price({ min: 10, max: 100, dec: 2 }),
+          color: faker.color.human(),
+          created_at: faker.date.recent(),
         },
       ]);
     }
