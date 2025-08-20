@@ -1,0 +1,150 @@
+{
+  "topics": {},
+  "api_endpoints": {},
+  "tables": {
+    "rollup_table": {
+      "name": "rollup_table",
+      "columns": [
+        {
+          "name": "day",
+          "data_type": "DateTime",
+          "required": true,
+          "unique": false,
+          "primary_key": false,
+          "default": null,
+          "annotations": []
+        },
+        {
+          "name": "color",
+          "data_type": "String",
+          "required": true,
+          "unique": false,
+          "primary_key": false,
+          "default": null,
+          "annotations": []
+        },
+        {
+          "name": "total_sales",
+          "data_type": "Float64",
+          "required": true,
+          "unique": false,
+          "primary_key": false,
+          "default": null,
+          "annotations": []
+        },
+        {
+          "name": "avg_price",
+          "data_type": "Float64",
+          "required": true,
+          "unique": false,
+          "primary_key": false,
+          "default": null,
+          "annotations": []
+        }
+      ],
+      "order_by": [
+        "day"
+      ],
+      "deduplicate": false,
+      "engine": "MergeTree",
+      "version": null,
+      "source_primitive": {
+        "name": "rollup_table",
+        "primitive_type": "DataModel"
+      },
+      "metadata": {
+        "description": null
+      },
+      "life_cycle": "FULLY_MANAGED"
+    },
+    "source_table": {
+      "name": "source_table",
+      "columns": [
+        {
+          "name": "id",
+          "data_type": "String",
+          "required": true,
+          "unique": false,
+          "primary_key": true,
+          "default": null,
+          "annotations": []
+        },
+        {
+          "name": "price",
+          "data_type": "Decimal(10, 2)",
+          "required": true,
+          "unique": false,
+          "primary_key": false,
+          "default": null,
+          "annotations": []
+        },
+        {
+          "name": "color",
+          "data_type": "String",
+          "required": true,
+          "unique": false,
+          "primary_key": false,
+          "default": null,
+          "annotations": []
+        },
+        {
+          "name": "created_at",
+          "data_type": "DateTime",
+          "required": true,
+          "unique": false,
+          "primary_key": false,
+          "default": null,
+          "annotations": []
+        }
+      ],
+      "order_by": [],
+      "deduplicate": false,
+      "engine": null,
+      "version": null,
+      "source_primitive": {
+        "name": "source_table",
+        "primitive_type": "DataModel"
+      },
+      "metadata": {
+        "description": null
+      },
+      "life_cycle": "FULLY_MANAGED"
+    }
+  },
+  "views": {},
+  "topic_to_table_sync_processes": {},
+  "topic_to_topic_sync_processes": {},
+  "function_processes": {},
+  "block_db_processes": {},
+  "consumption_api_web_server": {},
+  "orchestration_workers": {
+    "orchestration_worker_ts": {
+      "supported_language": "Typescript"
+    }
+  },
+  "sql_resources": {
+    "source_to_rollup_mv": {
+      "name": "source_to_rollup_mv",
+      "setup": [
+        "CREATE MATERIALIZED VIEW IF NOT EXISTS source_to_rollup_mv \n        TO rollup_table\n        AS \n  SELECT \n    toStartOfDay(`created_at`) as day, \n    `color`, \n    sum(`price`) as total_sales,\n    avg(`price`) as avg_price\n  FROM `source_table` \n  GROUP BY day, color",
+        "INSERT INTO rollup_table\n          \n  SELECT \n    toStartOfDay(`created_at`) as day, \n    `color`, \n    sum(`price`) as total_sales,\n    avg(`price`) as avg_price\n  FROM `source_table` \n  GROUP BY day, color"
+      ],
+      "teardown": [
+        "DROP VIEW IF EXISTS source_to_rollup_mv"
+      ],
+      "pulls_data_from": [
+        {
+          "kind": "Table",
+          "id": "source_table"
+        }
+      ],
+      "pushes_data_to": [
+        {
+          "kind": "Table",
+          "id": "rollup_table"
+        }
+      ]
+    }
+  },
+  "workflows": {}
+}

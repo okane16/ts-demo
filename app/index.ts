@@ -17,6 +17,7 @@ interface Event {
   price: string & ClickHouseDecimal<10, 2>;
   color: string;
   created_at: Date;
+  event_type: "purchase" | "refund";
 }
 
 const sourceTable = new OlapTable<Event>("source_table");
@@ -37,7 +38,7 @@ const select = sql`
   SELECT 
     toStartOfDay(${sourceTable.columns.created_at}) as day, 
     ${sourceTable.columns.color}, 
-    sum(${sourceTable.columns.price}) as total_sales,
+    sumIf(${sourceTable.columns.price}, ${sourceTable.columns.event_type} = 'purchase') - sumIf(${sourceTable.columns.price}, ${sourceTable.columns.event_type} = 'refund') as total_sales,
     avg(${sourceTable.columns.price}) as avg_price
   FROM ${sourceTable} 
   GROUP BY day, color`;
@@ -59,6 +60,7 @@ const seed = new Task<null, void>("seed", {
           price: faker.commerce.price({ min: 10, max: 100, dec: 2 }),
           color: faker.color.human(),
           created_at: faker.date.recent(),
+          event_type: faker.helpers.arrayElement(["purchase", "refund"]),
         },
       ]);
     }
