@@ -28,10 +28,10 @@ interface DailyRollup {
   avg_price: number;
 }
 
-// const targetTable = new OlapTable<DailyRollup>("rollup_table", {
-//   engine: ClickHouseEngines.MergeTree,
-//   orderByFields: ["day"],
-// });
+const targetTable = new OlapTable<DailyRollup>("rollup_table", {
+  engine: ClickHouseEngines.MergeTree,
+  orderByFields: ["day"],
+});
 
 const select = sql`
   SELECT 
@@ -45,11 +45,8 @@ const select = sql`
 const mv = new MaterializedView<DailyRollup>({
   selectStatement: select,
   selectTables: [sourceTable],
-  targetTable: {
-    name: "table",
-    engine: ClickHouseEngines.MergeTree,
-  },
-  materializedViewName: "table",
+  targetTable: targetTable,
+  materializedViewName: "source_to_rollup_mv",
 });
 
 // Define a task to seed the table with random data
